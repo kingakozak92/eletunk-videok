@@ -1,0 +1,59 @@
+name: munka
+on:
+  push:
+    branches: [munka]
+permissions:
+  contents: write
+jobs:
+  run:
+    if: "!contains(github.event.head_commit.message, 'eredmeny')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: stock
+        run: |
+          mkdir -p stock
+          python3 - <<'PY'
+          import re, urllib.request, os
+          tags=["laptop","paperwork","office","calculator","money","calendar","mailbox","signing","bills","coins","typing"]
+          H={"User-Agent":"Mozilla/5.0"}
+          got=set()
+          for t in tags:
+              try:
+                  html=urllib.request.urlopen(urllib.request.Request(f"https://mixkit.co/free-stock-video/{t}/",headers=H),timeout=30).read().decode("utf8","ignore")
+              except Exception as e: print(t,e); continue
+              ids=[]
+              for m in re.findall(r'assets\.mixkit\.co/videos/(\d+)/',html)+re.findall(r'/free-stock-video/[a-z0-9-]+-(\d+)/',html):
+                  if m not in ids: ids.append(m)
+              n=0
+              for i in ids:
+                  if i in got: continue
+                  if n>=5: break
+                  try:
+                      d=urllib.request.urlopen(urllib.request.Request(f"https://assets.mixkit.co/videos/{i}/{i}-720.mp4",headers=H),timeout=60).read()
+                      if len(d)<100000: continue
+                      open(f"stock/{t}_{i}.mp4","wb").write(d); got.add(i); n+=1
+                  except Exception as e: print(i,e)
+              print(t,n)
+          PY
+      - name: atiras
+        run: |
+          pip install -q faster-whisper
+          python3 - <<'PY'
+          import json
+          from faster_whisper import WhisperModel
+          m=WhisperModel("medium",compute_type="int8")
+          segs,_=m.transcribe("hang/hang.wav",language="hu",word_timestamps=True,beam_size=5)
+          out=[]
+          for s in segs:
+              out.append({"start":s.start,"end":s.end,"text":s.text,"words":[{"w":w.word,"s":w.start,"e":w.end} for w in s.words]})
+          json.dump(out,open("atiras.json","w"),ensure_ascii=False,indent=1)
+          PY
+      - name: commit
+        run: |
+          git config user.name bot; git config user.email bot@example.com
+          git add stock atiras.json
+          git commit -qm "eredmeny"
+          git push -q origin HEAD:munka
