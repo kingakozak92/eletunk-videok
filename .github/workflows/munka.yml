@@ -1,0 +1,33 @@
+name: munka
+on:
+  push:
+    branches: [munka]
+permissions:
+  contents: write
+jobs:
+  run:
+    if: "!contains(github.event.head_commit.message, 'eredmeny')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: atiras
+        run: |
+          pip install -q faster-whisper
+          python3 - <<'PY'
+          import json
+          from faster_whisper import WhisperModel
+          m=WhisperModel("medium",compute_type="int8")
+          out=[]
+          for temp in [0.0,0.4]:
+              segs,_=m.transcribe("hang/hang.wav",language="hu",word_timestamps=True,beam_size=5,temperature=temp,vad_filter=False,condition_on_previous_text=False)
+              out.append([[(w.word,w.start,w.end) for w in s.words] for s in segs])
+          json.dump(out,open("atiras.json","w"),ensure_ascii=False)
+          PY
+      - name: commit
+        run: |
+          git config user.name bot; git config user.email bot@example.com
+          git add atiras.json
+          git commit -qm "eredmeny"
+          git push -q origin HEAD:munka
