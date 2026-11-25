@@ -1,0 +1,37 @@
+name: anyag
+on:
+  push:
+    branches: [anyag-letoltes]
+permissions:
+  contents: write
+jobs:
+  run:
+    if: "!contains(github.event.head_commit.message, 'eredmeny')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: sfx
+        run: |
+          mkdir -p anyag/sfx
+          python3 - <<'PY'
+          import re, urllib.request
+          H={"User-Agent":"Mozilla/5.0"}
+          tags=["pop","bubble","whoosh","swoosh","click","notification","typing","ding","sparkle","magic","interface","transition"]
+          for t in tags:
+              try: html=urllib.request.urlopen(urllib.request.Request(f"https://mixkit.co/free-sound-effects/{t}/",headers=H),timeout=30).read().decode("utf8","ignore")
+              except Exception as e: print(t,e); continue
+              urls=[]
+              for u in re.findall(r'https://assets\.mixkit\.co/[^"\']+?\.(?:mp3|wav)',html):
+                  if u not in urls: urls.append(u)
+              n=0
+              for u in urls[:8]:
+                  try:
+                      d=urllib.request.urlopen(urllib.request.Request(u,headers=H),timeout=30).read()
+                      open(f"anyag/sfx/{t}_{u.split('/')[-1]}","wb").write(d); n+=1
+                  except Exception as e: print(u,e)
+              print(t,n)
+          PY
+      - name: commit
+        run: |
+          git config user.name bot; git config user.email bot@example.com
+          git add anyag; git commit -qm "eredmeny"; git push -q origin HEAD:anyag-letoltes
