@@ -1,0 +1,23 @@
+name: edu-zene2
+on:
+  push:
+    branches: [anyag-letoltes]
+permissions:
+  contents: write
+jobs:
+  get:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Letoltes
+        run: |
+          mkdir -p anyag/edu2 && cd anyag/edu2
+          for id in wind-cartographer-02-first-updraft sky-bell-tuner-02-thousand-glass-bells cloudcape-lighthouse-02-polishing-the-great-lens ice-highland-aurora-07-through-the-brass-telescope sky-bell-tuner-04-the-first-tuned-note; do
+            curl -sfL -A "Mozilla/5.0" "https://arcalune.com/api/tracks/$id/download" -o full.mp3 && ffmpeg -v error -y -i full.mp3 -t 200 -b:a 160k $id.mp3; rm -f full.mp3
+          done
+          ls -la
+      - name: Commit
+        run: |
+          git config user.name "Claude"; git config user.email "noreply@anthropic.com"
+          git add anyag; git commit -m "Edu zene 2" || true
+          git push origin anyag-letoltes
